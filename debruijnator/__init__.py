@@ -1,5 +1,6 @@
 import screed
 import string
+import igraph
 
 """
 A simple de Bruijn graph implementation.
@@ -52,7 +53,10 @@ class deBruijnGraph :
                         ( 1,-1) : 'fr', 
                         (-1, 1) : 'rf', 
                         (-1,-1) : 'rr', }
-    
+        
+        self.g = igraph.Graph( directed=True )
+        
+
     def add_edge( self, kmer1, kmer2, strand1, strand2 ) :
         """
         Add an edge to the de Bruijn graph.
@@ -87,6 +91,42 @@ class deBruijnGraph :
             k2 = kmer1
             k1 = kmer2
 
+    def add_edge_igraph( self, kmer1, kmer2, strand1, strand2 ) :
+        """
+        Add an edge to the de Bruijn graph.
+
+            kmer1   : first kmer (a string)
+            kmer2   : second kmer (a string)
+            strand1 : strand orientation of first kmer (1 or -1)
+            strand2 : strand orientation of second kmer (1 or -1)
+
+            NOTE : This implementation doesn't use the strand
+                   orientation for anything.
+        """
+        print kmer1, kmer2
+        if self.g.vcount() == 1 :
+            self.g.vs[0]['kmer'] = kmer1
+
+        if not self.g.vs['kmer'].__contains__( kmer1 ) :
+            self.g.add_vertices( 1 )
+            self.g.vs[ self.g.vcount() - 1 ]['kmer'] = kmer1
+
+        if not self.g.vs['kmer'].__contains__( kmer2 ) :
+            self.g.add_vertices( 1 )
+            self.g.vs[ self.g.vcount() - 1 ]['kmer'] = kmer2
+
+        i = self.g.vs['kmer'].index( kmer1 )
+        j = self.g.vs['kmer'].index( kmer2 )
+
+        try : 
+            edge = self.g.get_eid( i, j )
+            self.g.es[ edge ]['mult'] = self.g.es[ edge ]['mult'] + 1
+        except igraph.InternalError :
+            self.g.add_edges( (i,j) )
+            edge = self.g.get_eid( i, j )
+            self.g.es[ edge ]['mult'] = 1
+            
+        
 
     def consume_seq( self, seq ) :
         """
@@ -100,7 +140,7 @@ class deBruijnGraph :
                 o = -1
             
             for i in range( len(kmers) - 1 ) :
-                self.add_edge( kmers[i], kmers[i+1], o, o )
+                self.add_edge_igraph( kmers[i], kmers[i+1], o, o )
         
 
     def consume_fasta( self, seqfile ) :
