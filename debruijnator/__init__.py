@@ -1,6 +1,7 @@
 import screed
 import string
 import igraph
+import kmertree
 
 """
 A simple de Bruijn graph implementation.
@@ -55,7 +56,8 @@ class deBruijnGraph :
                         (-1,-1) : 'rr', }
         
         self.g = igraph.Graph( directed=True )
-        
+        self.kmertree = kmertree.KmerTree()
+        self.kmers = []
 
     def add_edge( self, kmer1, kmer2, strand1, strand2 ) :
         """
@@ -103,29 +105,35 @@ class deBruijnGraph :
             NOTE : This implementation doesn't use the strand
                    orientation for anything.
         """
-        print kmer1, kmer2
+
+        ori = self.otable[ ( strand1, strand2 ) ]
+        
         if self.g.vcount() == 1 :
             self.g.vs[0]['kmer'] = kmer1
+            self.kmertree[kmer1] = 0
+            self.kmers.append(kmer1)
 
-        if not self.g.vs['kmer'].__contains__( kmer1 ) :
-            self.g.add_vertices( 1 )
-            self.g.vs[ self.g.vcount() - 1 ]['kmer'] = kmer1
-
-        if not self.g.vs['kmer'].__contains__( kmer2 ) :
-            self.g.add_vertices( 1 )
-            self.g.vs[ self.g.vcount() - 1 ]['kmer'] = kmer2
-
-        i = self.g.vs['kmer'].index( kmer1 )
-        j = self.g.vs['kmer'].index( kmer2 )
-
+        i = 0
+        for kmer in [ kmer1, kmer2 ] :
+            j = i
+            if not kmer in self.kmers :
+                self.g.add_vertices( 1 )
+                j = self.g.vcount() - 1
+                self.kmertree[kmer] = j
+                #self.g.vs[ i ]['kmer'] = kmer
+                self.kmers.append(kmer)
+            else : 
+                j = self.kmertree[kmer]
+                
         try : 
             edge = self.g.get_eid( i, j )
-            self.g.es[ edge ]['mult'] = self.g.es[ edge ]['mult'] + 1
+            self.g.es[ edge ][ori] = self.g.es[ edge ][ori] + 1
         except igraph.InternalError :
             self.g.add_edges( (i,j) )
             edge = self.g.get_eid( i, j )
-            self.g.es[ edge ]['mult'] = 1
-            
+            for o in self.otable.values() :
+                self.g.es[ edge ][o] = 0
+            self.g.es[edge][ori] = 1
         
 
     def consume_seq( self, seq ) :
